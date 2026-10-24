@@ -111,13 +111,6 @@ Botunuza mesaj göndererek filtreleri istediğiniz an değiştirebilirsiniz:
 - `/konum izmir,istanbul` — Belirli şehirleri filtreler
 - `/ayarlar` — Aktif filtreleri butonlu kontrol paneliyle gösterir
 
-### 5. Kurulumu Test Etme
-Dağıtım tamamlandıktan sonra tarayıcınızdan şu adrese girerek anında test mesajı alabilirsiniz:
-```text
-https://<VERCEL_PROJE_ADINIZ>.vercel.app/api/telegram/test
-```
-Telegram'ınıza tüm derece/dakika ve harita detaylarıyla örnek bir test deprem uyarısı düşecektir!
-
 ---
 
 ## 📱 Telegram Bildirim Örneği
