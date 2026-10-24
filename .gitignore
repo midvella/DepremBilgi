@@ -1,0 +1,19 @@
+# Ortam Değişkenleri (GİZLİ - Asla GitHub'a yüklemeyin)
+.env
+.env.local
+.env.*.local
+
+# Bağımlılıklar
+node_modules/
+package-lock.json
+
+# Vercel yerel önbellek
+.vercel/
+
+# Sistem ve editör dosyaları
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.log
+.vercel

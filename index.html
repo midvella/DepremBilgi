@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Deprem Bilgi Sistemi — Türkiye Anlık Deprem Takip</title>
+    <meta name="description" content="Türkiye ve dünya genelinde anlık deprem takibi. AFAD, Kandilli Rasathanesi, USGS ve EMSC verilerini tek platformda görüntüleyin.">
+    <meta name="keywords" content="deprem, earthquake, Türkiye, AFAD, Kandilli, sismik, deprem haritası">
+    <meta name="theme-color" content="#0a0a1a">
+
+    
+    <meta property="og:title" content="Deprem Bilgi Sistemi">
+    <meta property="og:description" content="Türkiye ve dünya genelinde anlık deprem takibi">
+    <meta property="og:type" content="website">
+
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🌍</text></svg>">
+
+    
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+
+    
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    
+    <div id="loading-overlay" class="active">
+        <div class="loader-seismic">
+            <svg viewBox="0 0 120 60">
+                <polyline class="seismic-line" points="0,30 15,30 20,10 25,50 30,20 35,40 40,25 45,35 50,28 55,32 60,30 75,30 80,5 85,55 90,15 95,45 100,25 105,35 110,30 120,30"/>
+            </svg>
+        </div>
+        <span class="loader-text">Sismik Veriler Yükleniyor</span>
+    </div>
+
+    
+    <div id="error-toast"></div>
+
+    
+    <header class="header">
+        <div class="header-left">
+            <button class="btn-icon mobile-menu-btn" onclick="document.querySelector('.sidebar').classList.toggle('mobile-open')" aria-label="Menü">☰</button>
+            <a href="#" class="logo">
+                <div class="logo-icon">🌍</div>
+                <div class="logo-text">
+                    <span class="logo-title">Deprem Bilgi Sistemi</span>
+                    <span class="logo-subtitle">Anlık Sismik İzleme</span>
+                </div>
+            </a>
+        </div>
+
+        <div class="header-center">
+            <div class="source-status">
+                <span id="status-kandilli" class="status-dot"></span>
+                <span>Kandilli</span>
+            </div>
+            <div class="source-status">
+                <span id="status-afad" class="status-dot"></span>
+                <span>AFAD</span>
+            </div>
+            <div class="source-status">
+                <span id="status-usgs" class="status-dot"></span>
+                <span>USGS</span>
+            </div>
+            <div class="source-status">
+                <span id="status-emsc" class="status-dot"></span>
+                <span>EMSC</span>
+            </div>
+        </div>
+
+        <div class="header-right">
+            <span id="last-update"></span>
+            <button class="btn-icon" id="sound-btn" title="Sesli Bildirim (Açık)" aria-label="Ses">🔔</button>
+            <button class="btn-icon btn-telegram" id="telegram-modal-btn" title="Telegram Bot Kurulumu" aria-label="Telegram">🤖</button>
+            <button class="btn-icon" id="refresh-btn" title="Verileri Yenile" aria-label="Yenile">🔄</button>
+        </div>
+    </header>
+
+    
+    <div class="main-layout">
+        
+        <aside class="sidebar">
+            
+            <div class="stats-bar">
+                <div class="stat-card">
+                    <div class="stat-number" id="stat-total" data-target="0">0</div>
+                    <div class="stat-label">Toplam</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="stat-max-mag" data-target="0">0</div>
+                    <div class="stat-label">En Büyük</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="stat-avg-mag" data-target="0">0</div>
+                    <div class="stat-label">Ort. Büy.</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="stat-avg-depth" data-target="0">0</div>
+                    <div class="stat-label">Ort. Der.</div>
+                </div>
+            </div>
+
+            
+            <div class="filters-bar">
+                <div class="search-box">
+                    <input type="text" id="search-input" placeholder="Konum ara... (ör: İstanbul, Ege)">
+                </div>
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <span class="filter-label">Min Büyüklük</span>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <input type="range" id="mag-filter" min="0" max="7" step="0.5" value="0">
+                            <span class="mag-filter-display" id="mag-filter-value">M 0+</span>
+                        </div>
+                    </div>
+                </div>
+                <div class="filter-row">
+                    <div class="filter-group">
+                        <span class="filter-label">Kaynak</span>
+                        <select id="source-filter">
+                            <option value="all">Tüm Kaynaklar</option>
+                            <option value="kandilli">🔬 Kandilli</option>
+                            <option value="afad">🏛️ AFAD</option>
+                            <option value="usgs">🌍 USGS</option>
+                            <option value="emsc">🇪🇺 EMSC</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <span class="filter-label">Sıralama</span>
+                        <select id="sort-select">
+                            <option value="date-desc">En Yeni</option>
+                            <option value="date-asc">En Eski</option>
+                            <option value="mag-desc">En Büyük</option>
+                            <option value="mag-asc">En Küçük</option>
+                            <option value="depth-desc">En Derin</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="result-info">
+                    <span id="result-count">0 deprem</span>
+                </div>
+            </div>
+
+            
+            <div class="earthquake-list-container">
+                <div id="earthquake-list">
+                    <div class="empty-state">
+                        <span class="empty-icon">📡</span>
+                        <p>Veriler yükleniyor...</p>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        
+        <main class="main-content">
+            
+            <div class="tab-bar">
+                <button class="tab-btn active" data-tab="tab-map">🗺️ Harita</button>
+                <button class="tab-btn" data-tab="tab-dashboard">📊 İstatistikler</button>
+            </div>
+
+            
+            <div class="tab-panels">
+                
+                <div class="tab-content active" id="tab-map">
+                    <div id="earthquake-map"></div>
+                </div>
+
+                
+                <div class="tab-content" id="tab-dashboard">
+                    <div class="dashboard-grid">
+                        <div class="chart-card">
+                            <div class="chart-title">📊 Büyüklük Dağılımı</div>
+                            <div class="chart-container">
+                                <canvas id="magnitude-chart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title">📈 Saatlik Aktivite (Son 24 Saat)</div>
+                            <div class="chart-container">
+                                <canvas id="timeline-chart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title">📏 Derinlik Dağılımı</div>
+                            <div class="chart-container">
+                                <canvas id="depth-chart"></canvas>
+                            </div>
+                        </div>
+                        <div class="chart-card">
+                            <div class="chart-title">🏙️ Bölge Bazlı Dağılım</div>
+                            <div class="chart-container">
+                                <canvas id="region-chart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    
+    <!-- Detail Backdrop for easy close on click outside -->
+    <div id="detail-backdrop" class="detail-backdrop" onclick="App.closeDetailPanel()"></div>
+
+    <div id="detail-panel">
+        <div class="detail-close-bar">
+            <button class="detail-close-btn" onclick="App.closeDetailPanel()" aria-label="Kapat">
+                ✕ Kapat
+            </button>
+        </div>
+    </div>
+
+    <!-- Telegram Modal -->
+    <div id="telegram-modal" class="modal-backdrop">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <span class="modal-icon">🤖</span>
+                    <div>
+                        <h3>Telegram Deprem Botu & Filtreleme</h3>
+                        <p class="modal-subtitle">Anlık deprem alarmları ve filtre ayarları</p>
+                    </div>
+                </div>
+                <button class="btn-icon" id="close-telegram-modal" aria-label="Kapat">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="filter-highlight-box">
+                    <h4>🎯 İstediğin Gibi Filtrele! (Örn: Sadece Türkiye ve M 4.0+)</h4>
+                    <p>Telegram botuna tek bir mesaj göndererek bildirimleri anında filtreleyebilirsin:</p>
+                    <div class="filter-command-chips">
+                        <div class="filter-chip">
+                            <span class="chip-label">Sadece Türkiye M 4.0+:</span>
+                            <code>/filtre 4.0</code> + <code>/bolge turkiye</code>
+                        </div>
+                        <div class="filter-chip">
+                            <span class="chip-label">Özel Şehirler:</span>
+                            <code>/konum istanbul,izmir,ege</code>
+                        </div>
+                        <div class="filter-chip">
+                            <span class="chip-label">Tüm Ayarlar ve Butonlar:</span>
+                            <code>/ayarlar</code>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="telegram-features">
+                    <div class="tf-item">
+                        <span class="tf-icon">⚡</span>
+                        <div>
+                            <strong>Akıllı Vercel Cron (5 Dakikada Bir)</strong>
+                            <p>Arka planda sunucusuz çalışır; sadece filtrenize uyan yeni depremleri mükerrer olmadan iletir.</p>
+                        </div>
+                    </div>
+                    <div class="tf-item">
+                        <span class="tf-icon">🌐</span>
+                        <div>
+                            <strong>Derece-Dakika (DMS) Koordinatlar</strong>
+                            <p>Örn: <code>38° 25' 09.1" K, 27° 03' 01.4" D</code> hassas konum ve tek tıkla Google Haritalar.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="test-bot-section" style="margin-top: 1.5rem; text-align: center;">
+                    <a href="https://t.me/Earthqueekbot" target="_blank" rel="noopener noreferrer" class="btn-primary" style="display: inline-flex; align-items: center; justify-content: center; gap: 8px; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 600;">
+                        <span>📱 Telegram Botunu Aç (@Earthqueekbot)</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+    
+    <script src="js/utils.js"></script>
+    <script src="js/map.js"></script>
+    <script src="js/charts.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>

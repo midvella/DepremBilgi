@@ -1,0 +1,13 @@
+{
+    "name": "deprem-bilgi-sistemi",
+    "version": "1.0.0",
+    "private": true,
+    "scripts": {
+        "dev": "vercel dev",
+        "build": "echo 'Static site - no build step needed'",
+        "deploy": "vercel --prod"
+    },
+    "dependencies": {
+        "node-fetch": "^2.7.0"
+    }
+}
